@@ -34,6 +34,24 @@ interface PublicUser {
 
 type Step = 1 | 2;
 
+// Sites allowed to embed this page and hear about a confirmed booking.
+// revbridge.ai's lead form (rbd-landing-page, DemoForm.tsx) listens for this
+// message to count "Demo Booked" and fire its ad conversions (LinkedIn, Meta,
+// Google). postMessage drops the message for any other parent origin.
+const EMBEDDER_ORIGINS = ['https://revbridge.ai', 'https://www.revbridge.ai'];
+
+/** Tells the embedding page that the booking went through. No personal data. */
+function notifyEmbedder() {
+  if (typeof window === 'undefined' || window.parent === window) return;
+  for (const origin of EMBEDDER_ORIGINS) {
+    try {
+      window.parent.postMessage({ type: 'booking_successful' }, origin);
+    } catch {
+      // never block the confirmation on this
+    }
+  }
+}
+
 export default function UserBookSlugPage() {
   const params = useParams();
   const router = useRouter();
@@ -246,6 +264,7 @@ export default function UserBookSlugPage() {
 
       if (res.ok) {
         const data = await res.json();
+        notifyEmbedder();
         router.push(`/book/${username}/confirmed?id=${data.booking.id}`);
       } else {
         const errorData = await res.json();
